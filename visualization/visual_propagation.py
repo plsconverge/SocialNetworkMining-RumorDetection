@@ -11,7 +11,7 @@ import networkx as nx
 import datetime
 from collections import defaultdict, deque
 
-ROOTPATH = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ROOTPATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATAPATH = os.path.join(ROOTPATH, r'data//CED_Dataset')
 RUMORPATH = os.path.join(DATAPATH, 'rumor-repost')
 NONRUMORPATH = os.path.join(DATAPATH, 'non-rumor-repost')
