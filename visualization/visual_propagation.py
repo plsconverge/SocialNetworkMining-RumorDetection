@@ -443,7 +443,7 @@ def visualize_propagation_tree(idx=0, rumor=False, layout_type='hierarchy'):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-idx', type=int, required=True, default=0)
+    parser.add_argument('-idx', type=int, default=0)
     parser.add_argument('--rumor', action='store_true')
     parser.add_argument('-layout', type=str, default='radial', choices=['hierarchy', 'radial', 'circular', 'spring'])
 
