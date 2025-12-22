@@ -1,6 +1,7 @@
 data/
 src/helpers/
 !src/data/
+.idea
 
 __pycache__/
 *.pyc
