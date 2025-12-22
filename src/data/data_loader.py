@@ -2,10 +2,14 @@ import os
 import json
 import glob
 from email.utils import parsedate_to_datetime
+from typing import List, TypeAlias, Dict
 
 import networkx as nx
 from datetime import datetime
 from sklearn.model_selection import train_test_split
+
+# Type aliases for better readability of code
+Path: TypeAlias = str
 
 class CEDDataset:
     def __init__(self, filepath):
@@ -14,8 +18,16 @@ class CEDDataset:
         self.origin_dir = os.path.join(filepath, 'original-microblog')
         self._json_files_cache = None
 
-    def _get_json_files(self, rumor: bool):
-        # Get list of JSON files (with caching)
+    def _get_json_files(self, rumor: bool) -> List[Path]:
+        """
+        Get list of JSON files of repost (with caching)
+        
+        :param self: Description
+        :param rumor: Determine whether rumor or nonrumor files are chosen
+        :type rumor: bool
+        :return: A list of the path of json files
+        :rtype: List[Path]
+        """
         if self._json_files_cache is None:
             self._json_files_cache = {}
         cache_key = 'rumor' if rumor else 'non_rumor'
@@ -24,13 +36,26 @@ class CEDDataset:
             self._json_files_cache[cache_key] = glob.glob(os.path.join(repost_dir, '*.json'))
         return self._json_files_cache[cache_key]
 
-    def load_single(self, idx: int, rumor: bool):
+    def load_single(self, idx: int, rumor: bool) -> Dict:
+        """
+        Load data related to a single blog, including its original information 
+        and the recordings of repost
+        
+        :param self: Description
+        :param idx: The index of the json file to load (the blog)
+        :type idx: int
+        :param rumor: Determine whether rumor or nonrumor files are chosen
+        :type rumor: bool
+        :return: A dictionary containing the info of a single blog and its repost
+        :rtype: Dict
+        """
         json_files = self._get_json_files(rumor)
         jsonfile = json_files[idx]
         with open(jsonfile, 'r', encoding='utf-8') as json_file:
-            nodelist = json.load(json_file)
+            nodelist = json.load(json_file) # list of dictionaries
 
         filename = os.path.basename(jsonfile)
+        # get the information from the original blog json file
         rootpath = os.path.join(self.origin_dir, filename)
         with open(rootpath, 'r', encoding='utf-8') as json_file:
             root_info = json.load(json_file)
@@ -63,7 +88,7 @@ class CEDDataset:
         # add edges
         for repost in nodelist:
             parent_id = repost['parent']
-            if parent_id == '':
+            if parent_id == '': # empty parent means direct repost
                 parent_id = root_id
             graph.add_edge(parent_id, repost['mid'])
 
@@ -76,7 +101,14 @@ class CEDDataset:
         }
         return dt
 
-    def load_all(self):
+    def load_all(self) -> List[Dict]:
+        """
+        Load data from all blogs
+        
+        :param self: Description
+        :return: A list of dictionaries of the info of blogs and reposts
+        :rtype: List[Dict]
+        """
         rumor_flg = [True, False]
         dt = []
         for rumor in rumor_flg:
