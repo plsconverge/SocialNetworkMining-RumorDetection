@@ -88,19 +88,22 @@ class CEDDataset:
 
     @staticmethod
     def split_dataset(dataset: list, test_size: float = 0.2, seed: int = 42):
-        indices = [dt['idx'] for dt in dataset]
-        labels = [dt['label'] for dt in dataset]
+        # Use positional indices to avoid collisions caused by reusing `idx`
+        # across rumor / non-rumor subsets.
+        indices = list(range(len(dataset)))
+        labels = [dt["label"] for dt in dataset]
 
         train_ids, test_ids, y_train, y_test = train_test_split(
-            indices, labels,
+            indices,
+            labels,
             test_size=test_size,
             random_state=seed,
             stratify=labels,
         )
 
-        dt_dict = {dt['idx']: dt for dt in dataset}
-        train_events = [dt_dict[idx] for idx in train_ids]
-        test_events = [dt_dict[idx] for idx in test_ids]
+        dt_dict = {i: dt for i, dt in enumerate(dataset)}
+        train_events = [dt_dict[i] for i in train_ids]
+        test_events = [dt_dict[i] for i in test_ids]
         return train_events, test_events, y_train, y_test
 
 

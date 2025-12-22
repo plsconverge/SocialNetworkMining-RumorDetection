@@ -5,3 +5,5 @@ src/helpers/
 __pycache__/
 *.pyc
 *.pyo
+
+to_ignore/
