@@ -70,6 +70,9 @@ class CEDDataset:
                 root_time = datetime.fromtimestamp(root_info['time']).strftime('%Y-%m-%d %H:%M:%S')
             elif type(root_info['time']) is str:
                 root_time = parsedate_to_datetime(root_info['time']).strftime('%Y-%m-%d %H:%M:%S')
+                # convert root_info['time'] into a timestamp
+                dt_tmp = datetime.strptime(root_info['time'], "%a %b %d %H:%M:%S %z %Y")
+                root_info['time'] = dt_tmp.timestamp()
         except TypeError as e:
             print(f"Error at BLog {filename}")
             raise e
