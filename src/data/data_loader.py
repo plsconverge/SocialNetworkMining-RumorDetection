@@ -2,14 +2,14 @@ import os
 import json
 import glob
 from email.utils import parsedate_to_datetime
-from typing import List, TypeAlias, Dict
+from typing import List, Dict
 
 import networkx as nx
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 
-# Type aliases for better readability of code
-Path: TypeAlias = str
+# Type alias for better readability (using str directly for Python 3.9 compatibility)
+Path = str
 
 class CEDDataset:
     def __init__(self, filepath):
