@@ -153,7 +153,7 @@ class FeatureEngineer:
         return features
 
     @staticmethod
-    def convert_to_dataframe(feature_dicts: list, selected_keys: list = None):
+    def convert_to_dataframe(feature_dicts: List, selected_keys: List = None):
         if selected_keys is None:
             selected_keys = list(feature_dicts[0].keys()) if feature_dicts else []
 
