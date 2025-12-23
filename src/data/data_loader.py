@@ -119,7 +119,17 @@ class CEDDataset:
         return dt
 
     @staticmethod
-    def split_dataset(dataset: list, test_size: float = 0.2, seed: int = 42):
+    def split_dataset(dataset: List[Dict], test_size: float = 0.2, seed: int = 42):
+        """
+        split the dataset into training set and test set
+        
+        :param dataset: List of data for each blog
+        :type dataset: List[Dict]
+        :param test_size: Ratio of the size of test set
+        :type test_size: float
+        :param seed: The seed for splitting
+        :type seed: int
+        """
         # Use positional indices to avoid collisions caused by reusing `idx`
         # across rumor / non-rumor subsets.
         indices = list(range(len(dataset)))
