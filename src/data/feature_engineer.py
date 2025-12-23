@@ -2,10 +2,11 @@ import numpy as np
 import networkx as nx
 import pandas as pd
 from datetime import datetime
+from typing import Dict, List
 
 class FeatureEngineer:
     @staticmethod
-    def extract_features(event: dict):
+    def extract_features(event: Dict) -> np.ndarray:
         # initialize
         reposts = event['reposts']
         features = list()
@@ -59,7 +60,7 @@ class FeatureEngineer:
         return np.array(features, dtype=np.float32)
 
     @staticmethod
-    def extract_features_advanced(event: dict):
+    def extract_features_advanced(event: Dict) -> Dict:
         # initialize
         reposts = event['reposts']
         features = dict()
@@ -87,6 +88,7 @@ class FeatureEngineer:
         root_info = event['root']
         user_info = root_info['user']
 
+        # pics: the number of pictures in the original blog
         features['pics'] = root_info['pics']
         features['comments'] = root_info['comments']
         features['reposts'] = root_info['reposts']
