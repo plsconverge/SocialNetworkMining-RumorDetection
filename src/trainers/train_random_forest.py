@@ -20,7 +20,6 @@ def main():
     datapath = os.path.join(rootpath, r'data//CED_Dataset')
 
     loader = CEDDataset(datapath)
-    extractor = FeatureEngineer()
 
     # load data
     dataset = loader.load_all()
@@ -29,11 +28,11 @@ def main():
 
     # extract features
     print("Extracting features...")
-    features_train = [extractor.extract_features_advanced(event) for event in train_set]
-    features_test = [extractor.extract_features_advanced(event) for event in test_set]
+    features_train = [FeatureEngineer.extract_features_advanced(event) for event in train_set]
+    features_test = [FeatureEngineer.extract_features_advanced(event) for event in test_set]
 
-    X_train = extractor.convert_to_dataframe(features_train)
-    X_test = extractor.convert_to_dataframe(features_test)
+    X_train = FeatureEngineer.convert_to_dataframe(features_train)
+    X_test = FeatureEngineer.convert_to_dataframe(features_test)
 
     y_train = pd.DataFrame(y_train)
     y_test = pd.DataFrame(y_test)
@@ -44,7 +43,6 @@ def main():
 
     y_train_pred = rf.predict(X_train)
     y_test_pred = rf.predict(X_test)
-    y_test_pred = 1 - y_test_pred
 
     print(f"Train ratio: {sum(y_train[0]) / len(y_train)}")
     print(f"Test ratio: {sum(y_test[0]) / len(y_test)}")
