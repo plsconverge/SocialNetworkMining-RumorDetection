@@ -14,6 +14,7 @@ from data.data_loader import CEDDataset
 from data.llm_dataset import CEDLLMDataset
 from prompts.rumor_detection_prompt import build_prompt
 from models.llm_classifier import classify_batch, calculate_metrics
+from utils.llm_cross_validation import cross_validate_llm
 
 try:
     from google import genai
@@ -46,7 +47,15 @@ def progress_callback(current: int, total: int):
 
 
 async def main():
-    """Main function to run LLM-based rumor detection."""
+    """Main function to run LLM-based rumor detection with cross-validation."""
+    import json
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Train LLM model with cross-validation")
+    parser.add_argument("--quick-test", action="store_true",
+                       help="Quick test mode: use small dataset, 2 folds, and 2 temperatures for fast validation")
+    args = parser.parse_args()
+    
     # Setup
     client = setup_gemini_api()
     
@@ -58,184 +67,242 @@ async def main():
     MODEL_NAME = "gemini-2.5-flash-lite"
     MAX_CONCURRENT = 15     
     MAX_RETRIES = 4         
-    TEMPERATURE = 0.0       # deterministic
-    MAX_OUTPUT_TOKENS = 256 # allow longer JSON and avoid truncation
+    MAX_OUTPUT_TOKENS = 256
     
     # Data configuration
     K_FRONT = 25
     M_BACK = 15
-    TEST_SAMPLE_SIZE = None # None = use all test set, or set to 50/100 for POC
+    
+    # Quick test mode: use fewer folds and smaller dataset
+    if args.quick_test:
+        n_folds = 2
+        print("\n" + "="*80)
+        print("QUICK TEST MODE - Using 2 folds and limited samples for fast validation")
+        print("="*80 + "\n")
+    else:
+        n_folds = 4
+    
+    # Use best single temperature (0.1) based on analysis
+    TEST_TEMPERATURE = 0.1
     
     print("\n" + "="*80)
-    print("LLM-based Rumor Detection (Gemini)")
+    print("LLM-based Rumor Detection (Gemini) with Cross-Validation")
     print("="*80)
     print(f"Model: {MODEL_NAME}")
     print(f"Max concurrent: {MAX_CONCURRENT}")
+    print(f"Cross-validation folds: {n_folds}")
+    print(f"Test temperature: {TEST_TEMPERATURE} (best single temperature)")
     print(f"Data: {datapath}")
     print("="*80 + "\n")
     
-    # Load dataset - use same split as BERT baseline
+    # Load dataset
     print("Loading dataset...")
     base_loader = CEDDataset(datapath)
     all_events = base_loader.load_all()
-    # Use same split parameters as BERT: test_size=0.2, seed=42 (default)
     train_events, test_events, y_train, y_test = CEDDataset.split_dataset(all_events)
     
-    # Quick sanity check: label distribution in train/test after split (same as BERT)
+    # Quick test mode: limit dataset size
+    if args.quick_test:
+        max_train_samples = 200  # Use only 200 training samples
+        max_test_samples = 50    # Use only 50 test samples
+        train_events = train_events[:max_train_samples]
+        y_train = y_train[:max_train_samples]
+        test_events = test_events[:max_test_samples]
+        y_test = y_test[:max_test_samples]
+        print(f"⚠ Quick test mode: Using {len(train_events)} train samples, {len(test_events)} test samples\n")
+    
     from collections import Counter
-    train_label_counts = Counter(e["label"] for e in train_events)
-    test_label_counts = Counter(e["label"] for e in test_events)
-    print("Train label distribution:", dict(train_label_counts))
-    print("Test label distribution :", dict(test_label_counts))
+    print("Train label distribution:", dict(Counter(e["label"] for e in train_events)))
+    print("Test label distribution :", dict(Counter(e["label"] for e in test_events)))
+    print(f"Train events: {len(train_events)}, Test events: {len(test_events)}")
     
-    print(f"\nTotal events: {len(all_events)}")
-    print(f"Train events: {len(train_events)}")
-    print(f"Test events: {len(test_events)}")
-    
-    # Sample test set if needed (for POC)
-    if TEST_SAMPLE_SIZE and TEST_SAMPLE_SIZE < len(test_events):
-        import random
-        random.seed(42) 
-        indices = random.sample(range(len(test_events)), TEST_SAMPLE_SIZE)
-        test_events = [test_events[i] for i in indices]
-        y_test = [y_test[i] for i in indices]
-        print(f"\n⚠ Using sample of {TEST_SAMPLE_SIZE} events for testing (POC mode)")
-    
-    # Prepare LLM dataset
-    print("\nPreparing LLM dataset...")
-    test_dataset = CEDLLMDataset(
-        events=test_events,
-        k_front=K_FRONT,
-        m_back=M_BACK,
-        include_numeric=True,
-        numeric_keys=["likes", "followers"],
-    )
-    
-    # Build prompts
-    print("Building prompts...")
-    prompts = []
-    for i in range(len(test_dataset)):
-        sample = test_dataset[i]
-        prompt = build_prompt(
-            sample['text'],
-            use_few_shot=True,  # add compact few-shot to steady outputs
+    # Helper function to build prompts from events
+    def build_prompts_from_events(events):
+        """Build prompts from a list of events."""
+        dataset = CEDLLMDataset(
+            events=events,
+            k_front=K_FRONT,
+            m_back=M_BACK,
+            include_numeric=True,
+            numeric_keys=["likes", "followers"],
         )
-        prompts.append(prompt)
+        prompts = []
+        for i in range(len(dataset)):
+            sample = dataset[i]
+            prompt = build_prompt(sample['text'], use_few_shot=True)
+            prompts.append(prompt)
+        return prompts
     
-    print(f"Built {len(prompts)} prompts")
-    print(f"Average prompt length: {sum(len(p) for p in prompts) / len(prompts):.0f} characters")
+    # Cross-validation: classify validation sets
+    async def classify_fn(events, labels):
+        """Classify events using fixed temperature (0.0 for CV)."""
+        prompts = build_prompts_from_events(events)
+        results = await classify_batch(
+            prompts=prompts,
+            client=client,
+            model_name=MODEL_NAME,
+            max_concurrent=MAX_CONCURRENT,
+            max_retries=MAX_RETRIES,
+            temperature=0.0,  # Deterministic for CV
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            progress_callback=progress_callback,
+        )
+        return results
     
-    # Classify
-    print(f"\nStarting classification (concurrency: {MAX_CONCURRENT})...")
+    # Cross-validation
     start_time = datetime.now()
+    fold_metrics, cv_summary = await cross_validate_llm(
+        X_train=train_events,
+        y_train=y_train,
+        classify_fn=classify_fn,
+        n_folds=n_folds,
+        random_state=42,
+        verbose=True,
+    )
+    cv_elapsed = (datetime.now() - start_time).total_seconds()
     
-    results = await classify_batch(
-        prompts=prompts,
+    # Test set prediction using best single temperature
+    print("\n" + "="*80)
+    print(f"Test Set Prediction (Temperature: {TEST_TEMPERATURE})")
+    print("="*80)
+    test_start = datetime.now()
+    
+    test_prompts = build_prompts_from_events(test_events)
+    test_results = await classify_batch(
+        prompts=test_prompts,
         client=client,
         model_name=MODEL_NAME,
         max_concurrent=MAX_CONCURRENT,
         max_retries=MAX_RETRIES,
-        temperature=TEMPERATURE,
+        temperature=TEST_TEMPERATURE,
         max_output_tokens=MAX_OUTPUT_TOKENS,
         progress_callback=progress_callback,
     )
     
-    end_time = datetime.now()
-    elapsed = (end_time - start_time).total_seconds()
+    test_preds = [r["label"] for r in test_results]
+    test_metrics = calculate_metrics(test_results, y_test) if y_test else None
     
-    print(f"\n\nClassification complete! Time used: {elapsed:.1f} seconds")
-    print(f"Average per sample: {elapsed / len(results):.2f} seconds")
+    test_elapsed = (datetime.now() - test_start).total_seconds()
+    total_elapsed = (datetime.now() - start_time).total_seconds()
     
-    # Calculate metrics
+    if test_metrics:
+        print("\n" + "="*80)
+        print("Test Set Results")
+        print("="*80)
+        print(f"Accuracy:  {test_metrics['accuracy']:.4f}")
+        print(f"F1:        {test_metrics['f1']:.4f}")
+        print(f"Precision: {test_metrics['precision']:.4f}")
+        print(f"Recall:    {test_metrics['recall']:.4f}")
+        print("="*80)
+    
+    # Print final summary
     print("\n" + "="*80)
-    print("Evaluation Results")
+    print("Final Summary")
     print("="*80)
-    
-    metrics = calculate_metrics(results, y_test)
-    
-    print(f"\nAccuracy: {metrics['accuracy']:.4f}")
-    print(f"F1 Score (Macro): {metrics['f1']:.4f}")
-    print(f"Precision: {metrics['precision']:.4f}")
-    print(f"Recall: {metrics['recall']:.4f}")
-    
-    print("\nClassification Report:")
-    print(metrics['report'])
-    
-    print("\nConfusion Matrix:")
-    print(metrics['confusion_matrix'])
-    
-    print("\nStatistics:")
-    stats = metrics['statistics']
-    print(f"  Total: {stats['total']}")
-    print(f"  Parse Errors: {stats['parse_errors']} ({stats['parse_error_rate']*100:.1f}%)")
-    print(f"  API Errors: {stats['api_errors']} ({stats['api_error_rate']*100:.1f}%)")
-    print(f"  Avg. Confidence: {stats['avg_confidence']:.3f}")
-    
-    # API error diagnostics
-    api_error_details = [
-        (r.get("api_error_type"), r.get("api_error"))
-        for r in results
-        if r.get("api_error")
-    ]
-    if api_error_details:
-        from collections import Counter
-        err_counter = Counter(api_error_details)
-        print("\nTop API errors (type, message):")
-        for (err_type, err_msg), cnt in err_counter.most_common(5):
-            short_msg = (err_msg or "").strip().split("\n")[0][:120]
-            print(f"  {cnt}x  {err_type}: {short_msg}")
+    print(f"Cross-Validation Accuracy: {cv_summary['accuracy']['mean']:.4f} ± {cv_summary['accuracy']['std']:.4f}")
+    print(f"Cross-Validation F1: {cv_summary['f1']['mean']:.4f} ± {cv_summary['f1']['std']:.4f}")
+    if test_metrics:
+        print(f"Test Accuracy: {test_metrics['accuracy']:.4f}")
+        print(f"Test F1: {test_metrics['f1']:.4f}")
+    print(f"\nTime: CV={cv_elapsed:.1f}s, Test={test_elapsed:.1f}s, Total={total_elapsed:.1f}s")
     
     # Save results
     output_dir = os.path.join(rootpath, "results")
     os.makedirs(output_dir, exist_ok=True)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(output_dir, f"llm_results_{timestamp}.json")
+    output_file = os.path.join(output_dir, f"llm_{timestamp}.json")
+    
+    # Collect misclassified cases
+    misclassified_cases = []
+    if test_preds and y_test and test_results:
+        # Find misclassified cases
+        for i, (true_label, pred_label) in enumerate(zip(y_test, test_preds)):
+            if true_label != pred_label:
+                result = test_results[i]
+                
+                # Get root text
+                root_text = ""
+                try:
+                    root_text = test_events[i]["root"].get("text", "") or ""
+                except Exception:
+                    pass
+                
+                misclassified_cases.append({
+                    "index": i,
+                    "true_label": int(true_label),
+                    "predicted_label": int(pred_label),
+                    "confidence": float(result["confidence"]),
+                    "reason": result.get("reason", ""),
+                    "root_text": root_text[:500],  # Limit text length
+                })
     
     output_data = {
         "config": {
             "model": MODEL_NAME,
+            "n_folds": n_folds,
+            "train_size": len(train_events),
+            "test_size": len(test_events),
             "max_concurrent": MAX_CONCURRENT,
             "k_front": K_FRONT,
             "m_back": M_BACK,
-            "test_size": len(test_events),
+            "test_temperature": TEST_TEMPERATURE,
         },
-        "metrics": {
-            "accuracy": float(metrics['accuracy']),
-            "f1": float(metrics['f1']),
-            "precision": float(metrics['precision']),
-            "recall": float(metrics['recall']),
+        "cv_summary": {
+            "accuracy": {
+                "mean": float(cv_summary['accuracy']['mean']),
+                "std": float(cv_summary['accuracy']['std']),
+            },
+            "f1": {
+                "mean": float(cv_summary['f1']['mean']),
+                "std": float(cv_summary['f1']['std']),
+            },
+            "precision": {
+                "mean": float(cv_summary['precision']['mean']),
+                "std": float(cv_summary['precision']['std']),
+            },
+            "recall": {
+                "mean": float(cv_summary['recall']['mean']),
+                "std": float(cv_summary['recall']['std']),
+            },
         },
-        "statistics": stats,
-        "elapsed_seconds": elapsed,
+        "test_metrics": {
+            "accuracy": float(test_metrics['accuracy']),
+            "f1": float(test_metrics['f1']),
+            "precision": float(test_metrics['precision']),
+            "recall": float(test_metrics['recall']),
+        } if test_metrics else None,
+        "fold_metrics": [
+            {
+                "accuracy": float(m['accuracy']),
+                "f1": float(m['f1']),
+                "precision": float(m['precision']),
+                "recall": float(m['recall']),
+            }
+            for m in fold_metrics
+        ],
+        "misclassified_cases": misclassified_cases,
+        "misclassified_count": len(misclassified_cases),
+        "timestamp": datetime.now().isoformat(),
+        "elapsed_seconds": {
+            "cv": cv_elapsed,
+            "test": test_elapsed,
+            "total": total_elapsed,
+        },
     }
     
-    import json
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
     
     print(f"\nResults saved to: {output_file}")
+    if misclassified_cases:
+        print(f"Misclassified cases: {len(misclassified_cases)} (saved to results file)")
     
-    # Print misclassified cases for quick diagnosis
-    mis_idx = [i for i, r in enumerate(results) if r["label"] != y_test[i]]
-    if mis_idx:
+    if args.quick_test:
         print("\n" + "="*80)
-        print(f"Misclassified ({len(mis_idx)} cases)")
+        print("QUICK TEST COMPLETE - All checks passed!")
+        print("You can now run without --quick-test for full training")
         print("="*80)
-        for i in mis_idx:
-            r = results[i]
-            print(f"\nIdx {i+1}: true={y_test[i]}, pred={r['label']}, conf={r['confidence']:.3f}")
-            if r.get("second_pass"):
-                print("  Note: second-pass result")
-            print(f"  Reason: {r['reason']}")
-            # Show root microblog text instead of full prompt
-            root_text = ""
-            try:
-                root_text = test_events[i]["root"].get("text", "") or ""
-            except Exception:
-                pass
-            root_preview = root_text.replace("\n", " ")
-            print(f"  Root text: {root_preview[:200]}{'...' if len(root_preview) > 200 else ''}")
 
 
 if __name__ == "__main__":
