@@ -1,6 +1,7 @@
 data/
 src/helpers/
-!src/data/
+src/data/__pycache__/
+# !src/data/
 .idea
 
 __pycache__/
