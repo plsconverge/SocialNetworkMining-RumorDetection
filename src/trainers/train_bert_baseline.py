@@ -296,7 +296,7 @@ def main():
         random_state=42,
         verbose=True,
         batch_size=8,
-        num_epochs=1,
+        num_epochs=3,
         lr=2e-5,
     )
     elapsed_seconds = (datetime.now() - start_time).total_seconds()
@@ -325,7 +325,7 @@ def main():
             "train_size": len(train_events),
             "test_size": len(test_events),
             "batch_size": 8,
-            "num_epochs": 1,
+            "num_epochs": 3,
             "lr": 2e-5,
             "include_numeric": include_numeric,
             "numeric_keys": numeric_keys,
