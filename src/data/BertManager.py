@@ -60,9 +60,8 @@ class BertManager:
     def load(self):
         print("Loading Model from local files...")
 
-        if not os.path.exists(os.path.join(self.model_dir, "config.json")):
-            print("Bert Model Not Downloaded")
-            raise FileNotFoundError(f"Necessary Filed not Downloaded")
+        # download the model
+        self.download()
 
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_dir)
         self.model = AutoModel.from_pretrained(self.model_dir)

@@ -61,15 +61,27 @@ class GCNDataset(InMemoryDataset):
         graph_id_counter = 0
 
         # load bert model
-        manager = BertManager()
+        root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        model_dir = os.path.join(root_path, "data", "models", "bert-base-chinese")
+        manager = BertManager(model_dir)
         manager.load()
+        
+        # Move model to GPU if available
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        print(f"Using device: {device}")
+        manager.model.to(device)
+        manager.model.eval()
+
+        from tqdm import tqdm
 
         for rumor in [True, False]:
             graph_filepath = os.path.join(self.raw_dir, f"{'rumor' if rumor else 'non-rumor'}-repost")
             blog_filepath = os.path.join(self.raw_dir, "original-microblog")
             filenames = glob.glob(os.path.join(graph_filepath, "*.json"))
+            
+            print(f"Processing {'rumor' if rumor else 'non-rumor'} data: {len(filenames)} graphs found.")
 
-            for filename in filenames:
+            for filename in tqdm(filenames, desc=f"Processing {'Rumor' if rumor else 'Non-Rumor'}"):
                 # load data
                 with open(filename, 'r', encoding='utf-8') as f:
                     dt = json.load(f)
@@ -85,68 +97,94 @@ class GCNDataset(InMemoryDataset):
                     if type(timestamp) is int:
                         root_time = datetime.fromtimestamp(timestamp)
                     elif type(timestamp) is str:
-                        # root_time = parsedate_to_datetime(root_info['time']).strftime('%Y-%m-%d %H:%M:%S')
                         root_time = datetime.strptime(timestamp, "%a %b %d %H:%M:%S %z %Y")
                 except ValueError as e:
                     print(f"Error at BLog {filename}")
                     raise e
-                # add to features
-                feature_root = np.array([root_time.year, root_time.month, root_time.day, root_time.hour, root_time.minute, root_time.second])
+                
+                # prepare time features for root
+                root_time_feat = [root_time.year, root_time.month, root_time.day, root_time.hour, root_time.minute, root_time.second]
 
-                # text
-                input_text = manager.tokenizer(
-                    root_info["text"],
-                    return_tensors="pt",
-                    truncation=True,
-                    max_length=512,
-                    padding="max_length"
-                )
-                with torch.no_grad():
-                    outputs = manager.model(input_text)
-                    embedding = outputs.last_hidden_state[:, 0, :]
-                    embedding = embedding.numpy().squeeze()
-
-                # feature array
-                feature_root = np.concatenate([feature_root, embedding])
-                x.append(torch.from_numpy(feature_root).float())
-
-                # counter
-                root_id = global_node_id_counter
-                global_node_id_counter += 1
-                node_graph_id.append(graph_id_counter)
-
-                # other nodes
+                # collect all valid nodes and their texts
+                valid_nodes = []
+                all_texts = [root_info["text"]] # Start with root text
+                all_time_feats = [root_time_feat] # Start with root time features
+                
+                # Filter valid nodes and collect data
                 node_name_to_id_mapping = dict()
+                
+                # First pass: identify valid nodes
+                # Root is implicitly valid and will get id global_node_id_counter
+                root_id = global_node_id_counter
+                
+                # We will assign IDs after batch processing to ensure alignment
+                # But we need to know which nodes are valid to build the batch
+                
+                temp_valid_nodes = [] # List of tuples (node_dict, time_feat)
+                
                 for node in dt:
-                    # time
-                    timestamp = dt['date']
+                    timestamp = node['date']
                     try:
-                        timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-                    except ValueError as e:
-                        # about 6 nodes with illegal format of timestamps, ignore the nodes
+                        ts = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
                         continue
-                    feature_node = [timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute, timestamp.second]
+                    
+                    time_feat = [ts.year, ts.month, ts.day, ts.hour, ts.minute, ts.second]
+                    temp_valid_nodes.append((node, time_feat))
+                    all_texts.append(node["text"])
+                    all_time_feats.append(time_feat)
 
-                    # mapping
-                    node_name_to_id_mapping[node['mid']] = global_node_id_counter
-
-                    # text
+                # Batch process texts
+                batch_size = 32 # Adjust based on GPU memory
+                all_embeddings = []
+                
+                for i in range(0, len(all_texts), batch_size):
+                    batch_texts = all_texts[i:i+batch_size]
+                    
                     input_text = manager.tokenizer(
-                        node["text"],
+                        batch_texts,
                         return_tensors="pt",
                         truncation=True,
-                        max_length=512,
+                        max_length=512, # Consider reducing this if OOM or slow
                         padding="max_length"
                     )
+                    
+                    # Move inputs to device
+                    input_text = {k: v.to(device) for k, v in input_text.items()}
+                    
                     with torch.no_grad():
-                        outputs = manager.model(input_text)
-                        embedding = outputs.last_hidden_state[:, 0, :]
-                        embedding = embedding.numpy().squeeze()
+                        outputs = manager.model(**input_text)
+                        # embeddings: [batch_size, hidden_size]
+                        embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy()
+                        all_embeddings.append(embeddings)
+                
+                if all_embeddings:
+                    all_embeddings = np.concatenate(all_embeddings, axis=0)
+                else:
+                    # Should not happen as root is always there
+                    continue
 
-                    feature_node = np.concatenate([feature_node, embedding])
+                # Now construct the graph data
+                
+                # 1. Root Node
+                feature_root = np.concatenate([np.array(all_time_feats[0]), all_embeddings[0]])
+                x.append(torch.from_numpy(feature_root).float())
+                
+                global_node_id_counter += 1
+                node_graph_id.append(graph_id_counter)
+                
+                # 2. Other Nodes
+                # They correspond to all_embeddings[1:] and temp_valid_nodes
+                for idx, (node, time_feat) in enumerate(temp_valid_nodes):
+                    # idx 0 in temp_valid_nodes corresponds to embedding index 1
+                    embedding = all_embeddings[idx + 1]
+                    
+                    feature_node = np.concatenate([np.array(time_feat), embedding])
                     x.append(torch.from_numpy(feature_node).float())
-
-                    # counter
+                    
+                    # Mapping: current global counter
+                    node_name_to_id_mapping[node['mid']] = global_node_id_counter
+                    
                     global_node_id_counter += 1
                     node_graph_id.append(graph_id_counter)
 
@@ -154,21 +192,21 @@ class GCNDataset(InMemoryDataset):
                 y.append(1 if rumor else 0)
 
                 # edge index
-                for node in dt:
-                    # skip the nodes with problem
-                    try:
-                        timestamp = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
-                    except ValueError as e:
-                        continue
-
+                # We need to iterate over temp_valid_nodes again to build edges
+                # because we need the full mapping to be ready
+                
+                for node, _ in temp_valid_nodes:
                     node_idx = node_name_to_id_mapping[node['mid']]
                     parent_mid = node['parent']
 
                     if parent_mid == '':
                         parent_idx = root_id
-                    else:
+                    elif parent_mid in node_name_to_id_mapping:
                         parent_idx = node_name_to_id_mapping[parent_mid]
+                    else:
 
+                        continue
+                        
                     edge_index.append([parent_idx, node_idx])
 
                 # graph id counter
@@ -270,7 +308,7 @@ class GCNDataset(InMemoryDataset):
 
         # slice dictionary
         slices = {'edge_index': edge_slice, 'x': node_slice}
-        slices['y'] = torch.arrange(0, node_counts.size(0), dtype=torch.long)
+        slices['y'] = torch.arange(0, node_counts.size(0), dtype=torch.long)
 
         return data, slices
 
@@ -283,7 +321,7 @@ class GCNDataset(InMemoryDataset):
         rev_edge_index = torch.stack([edge_index[1], edge_index[0]], dim=0)
 
         # merge original edges and reversed ones
-        new_edge_index = torch.stack([edge_index, rev_edge_index], dim=1)
+        new_edge_index = torch.cat([edge_index, rev_edge_index], dim=1)
 
         # remove repeated edges
         new_edge_index, _ = coalesce(new_edge_index, None, data.num_nodes, data.num_nodes)
