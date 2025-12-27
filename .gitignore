@@ -1,4 +1,6 @@
 data/
+!data/CED_Preprocessed
+!data/CED_Processed
 src/helpers/
 !src/data/
 src/data/__pycache__/
