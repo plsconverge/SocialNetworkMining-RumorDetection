@@ -10,6 +10,7 @@ from torch_geometric.data import InMemoryDataset, Data
 from sklearn.model_selection import train_test_split
 
 import sys
+import argparse
 
 from torch_geometric.utils import add_self_loops
 from torch_sparse import coalesce
@@ -23,9 +24,10 @@ class GCNDataset(InMemoryDataset):
         self.pre_process_flag = pre_process
         if transform is None:
             self.transform = self._to_undirected
+        self.processed = False
         super(GCNDataset, self).__init__(root, self.transform, None, None)
 
-        if empty:
+        if empty and not self.processed:
             # force to re-process
             self.process()
         else:
@@ -305,6 +307,7 @@ class GCNDataset(InMemoryDataset):
 
     def process(self):
         # called each time a new dataset class is defined
+        self.processed = True
         if self.pre_process_flag:
             dt = self.preprocess()
         else:
@@ -395,9 +398,17 @@ class GCNDataset(InMemoryDataset):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--force_process', action='store_true')
+    parser.add_argument('--preprocess', action='store_true')
+
+    args = parser.parse_args()
+    process_flag = args.force_process
+    preprocess_flag = args.preprocess
+
     root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     data_path = os.path.join(root_path, 'data')
-    dataset = GCNDataset(root=data_path, empty=True, pre_process=True)
+    dataset = GCNDataset(root=data_path, empty=process_flag, pre_process=preprocess_flag)
     print("Preprocess Complete, files saved in {}".format(dataset.preprocess_dir))
 
 if __name__ == '__main__':
