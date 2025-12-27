@@ -12,13 +12,13 @@ from tqdm.auto import tqdm
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.gcn_dataset import GCNDataset
-from models.gnn_classifier import GCNModel
+from models.gnn_classifier import GCNModel, GCNFNModel
 from utils.cross_validation import cross_validate_and_ensemble
 from utils.evaluation import calculate_metrics
 
 
 def train_epoch(
-    model: GCNModel,
+    model: GCNModel | GCNFNModel,
     dataloader: PyGDataLoader,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
@@ -46,7 +46,7 @@ def train_epoch(
 
 
 @torch.no_grad()
-def evaluate(model: GCNModel, dataloader: PyGDataLoader, device: torch.device) -> Dict[str, Any]:
+def evaluate(model: GCNModel | GCNFNModel, dataloader: PyGDataLoader, device: torch.device) -> Dict[str, Any]:
     model.eval()
     all_labels = []
     all_preds = []
@@ -63,7 +63,7 @@ def evaluate(model: GCNModel, dataloader: PyGDataLoader, device: torch.device) -
 
 
 @torch.no_grad()
-def predict(model: GCNModel, dataloader: PyGDataLoader, device: torch.device) -> List[int]:
+def predict(model: GCNModel | GCNFNModel, dataloader: PyGDataLoader, device: torch.device) -> List[int]:
     """Make predictions on a dataset."""
     model.eval()
     all_preds = []
@@ -87,7 +87,7 @@ def train_gcn_fold(
     batch_size: int = 32,
     num_epochs: int = 100,
     lr: float = 0.001,
-) -> GCNModel:
+) -> GCNModel | GCNFNModel:
     """Train a GCN model on a fold of data."""
     train_loader = PyGDataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -97,6 +97,7 @@ def train_gcn_fold(
         'num_classes': num_classes
     }
     model = GCNModel(args).to(device)
+    # model = GCNFNModel(args).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
@@ -106,14 +107,14 @@ def train_gcn_fold(
     return model
 
 
-def evaluate_gcn_fold(model: GCNModel, val_dataset: GCNDataset, y_val: List[int],
+def evaluate_gcn_fold(model: GCNModel | GCNFNModel, val_dataset: GCNDataset, y_val: List[int],
                       device: torch.device, batch_size: int = 32) -> Dict[str, Any]:
     """Evaluate a GCN model on validation data."""
     val_loader = PyGDataLoader(val_dataset, batch_size=batch_size, shuffle=False)
     return evaluate(model, val_loader, device)
 
 
-def predict_gcn_fold(model: GCNModel, test_dataset: GCNDataset,
+def predict_gcn_fold(model: GCNModel | GCNFNModel, test_dataset: GCNDataset,
                       device: torch.device, batch_size: int = 32) -> List[int]:
     """Make predictions using a GCN model."""
     test_loader = PyGDataLoader(test_dataset, batch_size=batch_size, shuffle=False)
