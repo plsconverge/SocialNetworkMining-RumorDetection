@@ -1,9 +1,8 @@
-data/
-!data/CED_Preprocessed
-!data/CED_Processed
+data/CED_Dataset/
+data/models/
+data/CED_Preprocessed/
+data/CED_Processed/
 src/helpers/
-!src/data/
-src/data/__pycache__/
 .idea
 
 __pycache__/

@@ -23,9 +23,10 @@ class GCNDataset(InMemoryDataset):
         self.pre_process_flag = pre_process
         if transform is None:
             self.transform = self._to_undirected
+        self.processed = False
         super(GCNDataset, self).__init__(root, self.transform, None, None)
 
-        if empty:
+        if empty and not self.processed:
             # force to re-process
             self.process()
         else:
@@ -283,6 +284,7 @@ class GCNDataset(InMemoryDataset):
 
     def process(self):
         # called each time a new dataset class is defined
+        self.processed = True
         if self.pre_process_flag:
             dt = self.preprocess()
         else:
