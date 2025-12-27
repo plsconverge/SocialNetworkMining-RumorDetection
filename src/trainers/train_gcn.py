@@ -148,7 +148,7 @@ def main():
     # - If CED_Processed/CED_data_features.pt exists, it loads directly
     # - If not, it calls process() which decides whether to run preprocess()
     print("Loading GCN dataset...")
-    dataset = GCNDataset(root=datapath, pre_process=False)
+    dataset = GCNDataset(root=datapath, empty=False, pre_process=False)
     print(f"Total samples: {len(dataset)}")
 
     # Extract labels for stratified splitting
