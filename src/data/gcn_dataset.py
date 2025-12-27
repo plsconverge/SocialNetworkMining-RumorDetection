@@ -7,6 +7,7 @@ from datetime import datetime
 # from email.utils import parsedate_to_datetime
 import torch
 from torch_geometric.data import InMemoryDataset, Data
+from sklearn.model_selection import train_test_split
 
 import sys
 
@@ -29,6 +30,28 @@ class GCNDataset(InMemoryDataset):
             self.process()
         else:
             self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
+
+    @staticmethod
+    def split_dataset(dataset, test_size=0.2, random_state=42):
+        """
+        Split dataset into training and test sets using stratified sampling.
+        
+        Args:
+            dataset: The GCNDataset instance
+            test_size: Proportion of dataset to include in the test split
+            random_state: Random seed
+            
+        Returns:
+            train_dataset, test_dataset, y_train, y_test
+        """
+        y = [data.y.item() for data in dataset]
+        indices = list(range(len(dataset)))
+        
+        train_indices, test_indices, y_train, y_test = train_test_split(
+            indices, y, test_size=test_size, random_state=random_state, stratify=y
+        )
+        
+        return dataset[train_indices], dataset[test_indices], y_train, y_test
 
     @property
     def raw_dir(self):

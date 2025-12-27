@@ -170,39 +170,61 @@ def main():
     num_features = sample_graph.x.shape[1]
     print(f"Number of features: {num_features}")
 
+    # Split dataset using the static method
+    print("Splitting dataset...")
+    train_val_dataset, test_dataset, y_train_val, y_test = GCNDataset.split_dataset(
+        dataset, test_size=0.2, random_state=42
+    )
+
+    print(f"\nData Split:")
+    print(f"  Train+Val size: {len(train_val_dataset)} (for {n_folds}-fold CV)")
+    print(f"  Test size     : {len(test_dataset)} (hold-out)")
+    from collections import Counter
+    print(f"  Test label dist: {dict(Counter(y_test))}\n")
+
     # Prepare wrapper functions
-    train_indices = list(range(len(dataset)))
+    # We pass indices relative to the train_val_dataset
+    train_indices = list(range(len(train_val_dataset)))
 
     def train_fn(X_train_fold, y_train_fold, X_val_fold, y_val_fold, **kwargs):
-        train_dataset = dataset[X_train_fold]
-        val_dataset = dataset[X_val_fold]
+        # Indices are relative to train_val_dataset
+        train_subset = train_val_dataset[X_train_fold]
+        val_subset = train_val_dataset[X_val_fold]
 
         return train_gcn_fold(
-            train_dataset=train_dataset,
-            val_dataset=val_dataset,
+            train_dataset=train_subset,
+            val_dataset=val_subset,
             device=device,
             num_features=num_features,
             **kwargs
         )
 
     def evaluate_fn(model, X_val_fold, y_val_fold):
-        val_dataset = dataset[X_val_fold]
+        val_subset = train_val_dataset[X_val_fold]
         return evaluate_gcn_fold(
-            model, val_dataset, y_val_fold, device
+            model, val_subset, y_val_fold, device
         )
 
     def predict_fn(model, X_test):
-        test_dataset = dataset[X_test]
-        return predict_gcn_fold(model, test_dataset, device)
+        # X_test here will be passed from cross_validate_and_ensemble
+        # When predicting on the hold-out test set, X_test will be the test_dataset itself
+        # (or indices if we passed indices, but we'll pass the dataset object directly for the test part)
+        
+        # However, cross_validate_and_ensemble treats X_test as the data input.
+        # If we pass test_dataset as X_test to cross_validate_and_ensemble,
+        # it will be passed here.
+        return predict_gcn_fold(model, X_test, device)
 
     # Cross-validation and ensemble
     start_time = datetime.now()
     results = cross_validate_and_ensemble(
         X_train=train_indices,
-        y_train=y,
+        y_train=y_train_val,
         train_fn=train_fn,
         evaluate_fn=evaluate_fn,
         predict_fn=predict_fn,
+        X_test=test_dataset,  # Pass the dataset object directly
+        y_test=y_test,
         n_folds=n_folds,
         random_state=42,
         verbose=True,
