@@ -18,12 +18,17 @@ from data.BertManager import BertManager
 
 
 class GCNDataset(InMemoryDataset):
-    def __init__(self, root, transform=None, pre_process=False):
+    def __init__(self, root, empty=False, transform=None, pre_process=False):
         self.pre_process_flag = pre_process
         if transform is None:
             self.transform = self._to_undirected
-        super(GCNDataset, self).__init__(root, transform)
-        self.data, self.slices = torch.load(self.processed_paths[0])
+        super(GCNDataset, self).__init__(root, self.transform, None, None)
+
+        if empty:
+            # force to re-process
+            self.process()
+        else:
+            self.data, self.slices = torch.load(self.processed_paths[0], weights_only=False)
 
     @property
     def raw_dir(self):
@@ -137,15 +142,21 @@ class GCNDataset(InMemoryDataset):
                 # Batch process texts
                 batch_size = 32 # Adjust based on GPU memory
                 all_embeddings = []
+
+                # pre-allocate embedding array
+                num_texts = len(all_texts)
+                embedding_dim = manager.model.config.hidden_size
+                all_embeddings = np.zeros((num_texts, embedding_dim), dtype=np.float32)
+                current_embedding_idx = 0
                 
-                for i in range(0, len(all_texts), batch_size):
+                for i in range(0, num_texts, batch_size):
                     batch_texts = all_texts[i:i+batch_size]
                     
                     input_text = manager.tokenizer(
                         batch_texts,
                         return_tensors="pt",
                         truncation=True,
-                        max_length=512, # Consider reducing this if OOM or slow
+                        max_length=128, # Consider reducing this if OOM or slow
                         padding="max_length"
                     )
                     
@@ -156,19 +167,29 @@ class GCNDataset(InMemoryDataset):
                         outputs = manager.model(**input_text)
                         # embeddings: [batch_size, hidden_size]
                         embeddings = outputs.last_hidden_state[:, 0, :].cpu().numpy()
-                        all_embeddings.append(embeddings)
+                        # all_embeddings.append(embeddings)
+
+                        batch_len = len(batch_texts)
+                        all_embeddings[current_embedding_idx:current_embedding_idx+batch_len] = embeddings
+                        current_embedding_idx += batch_len
                 
-                if all_embeddings:
-                    all_embeddings = np.concatenate(all_embeddings, axis=0)
-                else:
-                    # Should not happen as root is always there
-                    continue
+                # if all_embeddings:
+                #     all_embeddings = np.concatenate(all_embeddings, axis=0)
+                # else:
+                #     # Should not happen as root is always there
+                #     continue
 
                 # Now construct the graph data
+
+                graph_features = []
+                graph_node_ids = []
+                graph_edges = []
                 
                 # 1. Root Node
                 feature_root = np.concatenate([np.array(all_time_feats[0]), all_embeddings[0]])
-                x.append(torch.from_numpy(feature_root).float())
+                # x.append(torch.from_numpy(feature_root).float())
+                graph_features.append(feature_root)
+                graph_node_ids.append(global_node_id_counter)
                 
                 global_node_id_counter += 1
                 node_graph_id.append(graph_id_counter)
@@ -180,10 +201,12 @@ class GCNDataset(InMemoryDataset):
                     embedding = all_embeddings[idx + 1]
                     
                     feature_node = np.concatenate([np.array(time_feat), embedding])
-                    x.append(torch.from_numpy(feature_node).float())
+                    # x.append(torch.from_numpy(feature_node).float())
+                    graph_features.append(feature_node)
                     
                     # Mapping: current global counter
                     node_name_to_id_mapping[node['mid']] = global_node_id_counter
+                    graph_node_ids.append(global_node_id_counter)
                     
                     global_node_id_counter += 1
                     node_graph_id.append(graph_id_counter)
@@ -207,13 +230,23 @@ class GCNDataset(InMemoryDataset):
 
                         continue
                         
-                    edge_index.append([parent_idx, node_idx])
+                    # edge_index.append([parent_idx, node_idx])
+                    graph_edges.append([parent_idx, node_idx])
+
+                x.extend(graph_features)
+                edge_index.extend(graph_edges)
 
                 # graph id counter
                 graph_id_counter += 1
 
         # stack tensors  **edge index needs transposition
-        x = torch.tensor(x, dtype=torch.float)
+        # x = np.array(x)
+        # x = torch.from_numpy(x).float()
+        x_tensor = torch.empty((len(x), len(x[0])), dtype=torch.float32)
+        for i, feature in enumerate(x):
+            x_tensor[i] = torch.tensor(feature, dtype=torch.float32)
+        x = x_tensor
+
         y = torch.tensor(y, dtype=torch.long)
         edge_index = torch.tensor(edge_index, dtype=torch.long).t()
         node_graph_id = torch.tensor(node_graph_id, dtype=torch.long)
@@ -231,15 +264,15 @@ class GCNDataset(InMemoryDataset):
             'node_graph_id': node_graph_id
         }
 
-        filename = os.path.join(self.preprocess_dir, self.preprocess_filename)
-        os.makedirs(os.path.dirname(self.preprocess_dir), exist_ok=True)
+        filename = os.path.join(self.preprocess_dir, self.preprocessed_file_names)
+        os.makedirs(self.preprocess_dir, exist_ok=True)
         with open(filename, 'wb') as f:
             pickle.dump(preprocessed_data, f)
 
         return preprocessed_data
 
     def load_preprocessed_data(self):
-        filename = os.path.join(self.preprocess_dir, self.preprocess_filename)
+        filename = os.path.join(self.preprocess_dir, self.preprocessed_file_names)
         if not os.path.exists(filename):
             raise FileNotFoundError("Preprocessed data not found")
 
@@ -276,7 +309,7 @@ class GCNDataset(InMemoryDataset):
             # data object for a single graph
             single_graph = Data(
                 x=data.x[x_slice[0]:x_slice[1]],
-                edge_index=data.edge_index[edge_slice[0]:edge_slice[1]],
+                edge_index=data.edge_index[:, edge_slice[0]:edge_slice[1]],
                 y=data.y[i]
             )
 
@@ -285,10 +318,10 @@ class GCNDataset(InMemoryDataset):
             data_list.append(single_graph)
 
         # convert back to inmemory dataset
-        data, slices = self.collate(data_list)
+        self.data, self.slices = self.collate(data_list)
 
         # save processed data
-        torch.save((data, slices), self.processed_paths[0])
+        torch.save((self.data, self.slices), self.processed_paths[0])
 
     @staticmethod
     def _split_data(data, node_graph_id):
@@ -299,12 +332,16 @@ class GCNDataset(InMemoryDataset):
 
         # edge numbers of each graph
         row, _ = data.edge_index
-        edge_counts = torch.bincount(row)
+        # edge_counts = torch.bincount(row)
+        edge_counts = torch.bincount(node_graph_id[row])
         # edge slices
         edge_slice = torch.cat([torch.tensor([0]), torch.cumsum(edge_counts, dim=0)])
 
         # change edge indices -- each graph starts from 0
-        data.edge_index -= node_slice[node_graph_id[row]].unsqueeze(0)
+        # data.edge_index -= node_slice[node_graph_id[row]].unsqueeze(0)
+        row_offset = node_graph_id[row].view(1, -1)
+        node_slice_offset = node_slice[row_offset]
+        data.edge_index -= node_slice_offset
 
         # slice dictionary
         slices = {'edge_index': edge_slice, 'x': node_slice}
@@ -324,7 +361,9 @@ class GCNDataset(InMemoryDataset):
         new_edge_index = torch.cat([edge_index, rev_edge_index], dim=1)
 
         # remove repeated edges
-        new_edge_index, _ = coalesce(new_edge_index, None, data.num_nodes, data.num_nodes)
+        max_node_id = max(new_edge_index.size(0), new_edge_index.size(1))
+        coalesce_num = max_node_id + 1
+        new_edge_index, _ = coalesce(new_edge_index, None, coalesce_num, coalesce_num)
 
         # update element
         data.edge_index = new_edge_index
@@ -335,7 +374,8 @@ class GCNDataset(InMemoryDataset):
 def main():
     root_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     data_path = os.path.join(root_path, 'data')
-    dataset = GCNDataset(root=data_path, pre_process=True)
+    dataset = GCNDataset(root=data_path, empty=True, pre_process=True)
+    print("Preprocess Complete, files saved in {}".format(dataset.preprocess_dir))
 
 if __name__ == '__main__':
     main()
