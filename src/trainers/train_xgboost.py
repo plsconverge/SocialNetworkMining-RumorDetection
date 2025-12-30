@@ -115,6 +115,36 @@ def main():
         print(f"Ensemble Test Accuracy: {results['ensemble_metrics']['accuracy']:.4f}")
         print(f"Ensemble Test F1: {results['ensemble_metrics']['f1']:.4f}")
     
+    # Feature Importance Analysis
+    print("\n" + "="*80)
+    print("Feature Importance Analysis (Full Training Set)")
+    print("="*80)
+
+    final_model = xgb.XGBClassifier(
+        max_depth=max_depth,
+        learning_rate=learning_rate,
+        n_estimators=n_estimators,
+        random_state=42,
+        use_label_encoder=False,
+        eval_metric='logloss'
+    )
+    final_model.fit(X_train_array, y_train_list)
+    
+    feature_names = X_train.columns.tolist()
+    importances = final_model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    
+    print(f"{'Rank':<5} {'Feature':<30} {'Importance':<15}")
+    print("-" * 55)
+    
+    feature_importance_list = []
+    for f in range(len(feature_names)):
+        idx = indices[f]
+        name = feature_names[idx]
+        score = float(importances[idx])
+        print(f"{f+1:<5} {name:<30} {score:.6f}")
+        feature_importance_list.append({"feature": name, "importance": score})
+
     # Save results
     output_dir = os.path.join(rootpath, "results")
     os.makedirs(output_dir, exist_ok=True)
@@ -134,6 +164,7 @@ def main():
             "n_estimators": n_estimators,
             "random_state": 42,
         },
+        "feature_importance": feature_importance_list,
         "cv_summary": {
             "accuracy": {
                 "mean": float(results['cv_summary']['accuracy']['mean']),
