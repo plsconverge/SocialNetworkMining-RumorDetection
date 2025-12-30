@@ -67,6 +67,36 @@ The project currently implements the following approaches for rumor detection:
 4.  **Large Language Models**:
     *   Gemini (via API) using specific prompts defined in `src/prompts/`.
 
+## Setup
+
+This project uses `uv` for dependency management. Due to the complex nature of Graph Neural Network dependencies, the installation is split into two steps to ensure compatibility with your hardware.
+
+### 1. Base Environment
+First, install [uv](https://github.com/astral-sh/uv) and sync the project's standard dependencies:
+
+```bash
+uv sync
+```
+
+### 2. PyG (Graph Neural Networks) Stack
+The PyG extensions must match your specific PyTorch and CUDA versions exactly.
+
+1. **Detect your versions:**
+   ```bash
+   python -c "import torch; print(torch.__version__); print(torch.version.cuda)"
+   ```
+
+2. **Install extensions from the PyG binary index:**
+   Replace `${TORCH}` and `${CUDA}` with the output from the previous step (e.g., `2.8.0` and `cu128`):
+   ```bash
+   pip install torch-scatter torch-sparse torch-cluster torch-spline-conv -f https://data.pyg.org/whl/torch-${TORCH}+${CUDA}.html
+   ```
+
+3. **Install Torch Geometric:**
+   ```bash
+   pip install torch-geometric
+   ```
+
 ## Usage
 
 To train a model, execute the corresponding script in `src/trainers/`. For example:
