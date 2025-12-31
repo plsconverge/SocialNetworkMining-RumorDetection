@@ -3,7 +3,7 @@ name = "social-network-mining-rumor-detection"
 version = "0.1.0"
 description = "Rumor detection project using ML, BERT, GCN, and LLM approaches."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "numpy==2.2.6",
     "pandas==2.3.3",
@@ -18,10 +18,14 @@ dependencies = [
     # should ensure they have the correct CUDA version installed.
     # We pin it to the teammate's version to ensure compatibility.
     "torch==2.8.0",
-    "torchvision==0.15.2", 
+    "torchvision", 
 ]
 
 [tool.uv]
+dev-dependencies = [
+    "pytest>=8.0.0",
+    "ruff>=0.1.0",
+]
 # We explicitly exclude PyG dependencies to avoid "Matrix of Doom" issues.
 # Users must install torch-geometric and its dependencies manually 
 # based on their specific hardware (CUDA) configuration.
