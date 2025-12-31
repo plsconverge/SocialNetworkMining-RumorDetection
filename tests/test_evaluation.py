@@ -1,4 +1,3 @@
-import pytest
 import numpy as np
 from src.utils.evaluation import calculate_metrics
 

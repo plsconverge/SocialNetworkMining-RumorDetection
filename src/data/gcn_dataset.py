@@ -69,7 +69,7 @@ class GCNDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return f"CED_data_features.pt"
+        return "CED_data_features.pt"
 
     @property
     def preprocess_dir(self):
@@ -77,7 +77,7 @@ class GCNDataset(InMemoryDataset):
 
     @property
     def preprocessed_file_names(self):
-        return f"CED_data_preprocessed.pkl"
+        return "CED_data_preprocessed.pkl"
 
     def preprocess(self):
         # preprocess the json files to generate a feature matrix for text data of the graph
@@ -136,7 +136,6 @@ class GCNDataset(InMemoryDataset):
                 root_time_feat = [root_time.year, root_time.month, root_time.day, root_time.hour, root_time.minute, root_time.second]
 
                 # collect all valid nodes and their texts
-                valid_nodes = []
                 all_texts = [root_info["text"]] # Start with root text
                 all_time_feats = [root_time_feat] # Start with root time features
                 
@@ -378,7 +377,6 @@ class GCNDataset(InMemoryDataset):
     @staticmethod
     def _to_undirected(data):
         edge_index = data.edge_index
-        num_edges = edge_index.size(1)
 
         # create reversed edges
         rev_edge_index = torch.stack([edge_index[1], edge_index[0]], dim=0)

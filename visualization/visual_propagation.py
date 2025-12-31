@@ -190,7 +190,6 @@ def visualize_propagation_tree(idx=0, rumor=False, layout_type='hierarchy'):
     # root node
     graph.add_node(root_node_info['mid'], **root_node_info)
 
-    node_attributes = {}
     for _, row in df.iterrows():
         mid = row['mid']
         attrs = {

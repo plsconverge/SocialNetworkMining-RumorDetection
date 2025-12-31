@@ -4,7 +4,7 @@ Rumor detection prompt for LLM models.
 This module provides prompt templates and functions to build complete prompts
 for rumor detection tasks using LLM APIs (Gemini, GPT, etc.).
 """
-from typing import Dict, Any, Optional
+from typing import Optional
 
 
 # System prompt (with clear criteria)

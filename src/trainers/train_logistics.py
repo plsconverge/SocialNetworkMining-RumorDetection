@@ -3,7 +3,6 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
-import pickle
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, f1_score, classification_report
@@ -57,7 +56,7 @@ def main():
     acc1 = accuracy_score(y_test, y_pred1)
     f1_1 = f1_score(y_test, y_pred1, average='macro')
     print(f"   Accuracy: {acc1:.4f}, F1: {f1_1:.4f}")
-    print(f"   Classification report:")
+    print("   Classification report:")
     print(classification_report(y_test, y_pred1, target_names=['Non-Rumor', 'Rumor']))
     
     # 2. selected features
@@ -68,7 +67,7 @@ def main():
     acc2 = accuracy_score(y_test, y_pred2)
     f1_2 = f1_score(y_test, y_pred2, average='macro')
     print(f"   Accuracy: {acc2:.4f}, F1: {f1_2:.4f}")
-    print(f"   Classification report:")
+    print("   Classification report:")
     print(classification_report(y_test, y_pred2, target_names=['Non-Rumor', 'Rumor']))
      
     # summary

@@ -1,7 +1,5 @@
 import os
 import sys
-import numpy as np
-from datetime import datetime
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.inspection import permutation_importance
 
@@ -48,7 +46,7 @@ def analyze_feature_importance():
     X_train_array = X_train_df.values
     X_test_array = X_test_df.values
     
-    print(f"\nData Summary:")
+    print("\nData Summary:")
     print(f"- Train samples: {len(train_set)}")
     print(f"- Test samples: {len(test_set)}")
     print(f"- Number of features: {len(feature_names)}")

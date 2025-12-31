@@ -7,7 +7,7 @@ import torch.nn as nn
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from transformers import BertModel, PreTrainedTokenizerBase
+from transformers import BertModel
 
 
 class BertRumorClassifier(nn.Module):
