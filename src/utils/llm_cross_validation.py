@@ -55,8 +55,6 @@ async def cross_validate_llm(
             print("-" * 80)
         
         # Split data
-        X_train_fold = [X_train[i] for i in train_idx]
-        y_train_fold = [y_train[i] for i in train_idx]
         X_val_fold = [X_train[i] for i in val_idx]
         y_val_fold = [y_train[i] for i in val_idx]
         
