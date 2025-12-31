@@ -5,7 +5,6 @@ from typing import Dict, Any, List
 from datetime import datetime
 
 import torch
-from torch.utils.data import DataLoader
 from torch_geometric.loader import DataLoader as PyGDataLoader
 from tqdm.auto import tqdm
 
@@ -177,7 +176,7 @@ def main():
         dataset, test_size=0.2, random_state=42
     )
 
-    print(f"\nData Split:")
+    print("\nData Split:")
     print(f"  Train+Val size: {len(train_val_dataset)} (for {n_folds}-fold CV)")
     print(f"  Test size     : {len(test_dataset)} (hold-out)")
     from collections import Counter

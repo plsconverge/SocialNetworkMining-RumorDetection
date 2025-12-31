@@ -69,7 +69,7 @@ class GCNDataset(InMemoryDataset):
 
     @property
     def processed_file_names(self):
-        return f"CED_data_features.pt"
+        return "CED_data_features.pt"
 
     @property
     def preprocess_dir(self):
@@ -77,7 +77,7 @@ class GCNDataset(InMemoryDataset):
 
     @property
     def preprocessed_file_names(self):
-        return f"CED_data_preprocessed.pkl"
+        return "CED_data_preprocessed.pkl"
 
     def preprocess(self):
         # preprocess the json files to generate a feature matrix for text data of the graph
