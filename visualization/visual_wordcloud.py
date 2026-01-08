@@ -3,12 +3,13 @@ import argparse
 import json
 import glob
 import matplotlib.pyplot as plt
-# 设置matplotlib中文支持
-plt.rcParams['font.sans-serif'] = ['SimHei']  # 使用黑体
-plt.rcParams['axes.unicode_minus'] = False    # 解决负号显示问题
 from wordcloud import WordCloud
 import jieba  # 用于中文分词
 import pandas as pd
+
+# 设置matplotlib中文支持
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 使用黑体
+plt.rcParams['axes.unicode_minus'] = False    # 解决负号显示问题
 
 # 设置路径常量
 ROOTPATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -100,13 +101,13 @@ def collect_all_text(is_rumor=True):
         '你', '这', '就', '不', '也', '还', '啊', '吗', '好', '要', '说',
         '吧', '去', '才', '么', '他', '又', '会', '呢', '就是', '可以',
         '看', '能', '来', '过', '让', '再', '那', '被', '为', '哈哈',
-        '给', '啦', '什么', '微博', '@', '//', 'http', 'https',
+        '给', '啦', '什么', '转发', '微博', '@', '//', 'http', 'https',
         '这个', '那个', '我们', '你们', '他们', '她们', '它的', '自己',
         '今天', '明天', '昨天', '现在', '时候', '时间', '事情', '东西'
     }
 
     # 使用jieba进行中文分词
-    print(f"正在进行中文分词...")
+    print("正在进行中文分词...")
     # words = jieba.lcut(combined_text)
     words = [word for word in jieba.lcut(combined_text) 
              if word.strip() and word not in CHINESE_STOPWORDS]

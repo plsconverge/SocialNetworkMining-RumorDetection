@@ -95,7 +95,7 @@ def train_gcn_fold(
         'num_hidden': num_hidden,
         'num_classes': num_classes
     }
-    model = GCNModel(args, cat=False).to(device)
+    model = GCNModel(args, cat=True).to(device)
     # model = GCNFNModel(args).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
