@@ -5,7 +5,6 @@ This module provides consistent evaluation metrics across different models
 (BERT, Random Forest, Logistic Regression, etc.).
 """
 from typing import List, Dict, Any, Optional
-import numpy as np
 from sklearn.metrics import (
     accuracy_score,
     f1_score,

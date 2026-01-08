@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+
+    - name: Install Ruff
+      run: pip install ruff
+
+    - name: Run Ruff Check
+      # This checks for syntax errors, unused imports, etc. 
+      # It does NOT install or run your project dependencies.
+      run: ruff check .
+
+    - name: CI Hello World
+      run: |
+        echo "=================================================="
+        echo "🚀 CI Pipeline Successful!"
+        echo "✅ Linting passed."
+        echo "✅ Environment is clean."
+        echo "=================================================="
