@@ -30,26 +30,26 @@ CED数据集包含了鲜明的层次结构特征。对每一个样本，它包�
 <table>
   <tr>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\Rumor_Propagation_1.png" style="zoom:48%;"/>
+      <img src="../results/Rumor_Propagation_1.png" style="zoom:48%;"/>
     </td>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\NonRumor_Propagation_1.png" style="zoom:48%;"/>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\Rumor_Propagation_2.png" style="zoom:48%;"/>
-    </td>
-    <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\NonRumor_Propagation_2.png" style="zoom:48%;"/>
+      <img src="../results/NonRumor_Propagation_1.png" style="zoom:48%;"/>
     </td>
   </tr>
   <tr>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\Rumor_Propagation_3.png" style="zoom:48%;"/>
+      <img src="../results/Rumor_Propagation_2.png" style="zoom:48%;"/>
     </td>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\NonRumor_Propagation_3.png" style="zoom:48%;"/>
+      <img src="../results/NonRumor_Propagation_2.png" style="zoom:48%;"/>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="../results/Rumor_Propagation_3.png" style="zoom:48%;"/>
+    </td>
+    <td align="center">
+      <img src="../results/NonRumor_Propagation_3.png" style="zoom:48%;"/>
     </td>
   </tr>
 </table>
@@ -62,10 +62,10 @@ CED数据集包含了鲜明的层次结构特征。对每一个样本，它包�
 <table>
   <tr>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\Rumor_Daily.png" style="zoom:48%;"/>
+      <img src="../results/Rumor_Daily.png" style="zoom:48%;"/>
     </td>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\NonRumor_Daily.png" style="zoom:48%;"/>
+      <img src="../results/NonRumor_Daily.png" style="zoom:48%;"/>
     </td>
   </tr>
 </table>
@@ -75,10 +75,10 @@ CED数据集包含了鲜明的层次结构特征。对每一个样本，它包�
 <table>
   <tr>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\Rumor_Interval.png" style="zoom:48%;"/>
+      <img src="../results/Rumor_Interval.png" style="zoom:48%;"/>
     </td>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\NonRumor_Interval.png" style="zoom:48%;"/>
+      <img src="../results/NonRumor_Interval.png" style="zoom:48%;"/>
     </td>
   </tr>
 </table>
@@ -89,10 +89,10 @@ CED数据集包含了鲜明的层次结构特征。对每一个样本，它包�
 <table>
   <tr>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\Rumor_Wordcloud.png" style="zoom:48%;"/>
+      <img src="../results/Rumor_Wordcloud.png" style="zoom:48%;"/>
     </td>
     <td align="center">
-      <img src="C:\Git\github_projects\SocialNetworkMining-RumorDetection\results\NonRumor_Wordcloud.png" style="zoom:48%;"/>
+      <img src="../results/NonRumor_Wordcloud.png" style="zoom:48%;"/>
     </td>
   </tr>
 </table>
