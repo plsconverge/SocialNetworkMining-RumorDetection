@@ -8,13 +8,16 @@ Project for lecture Social Network Mining.
 root/
 ├── data/                   # Data storage
 │   ├── CED_Dataset/        # Original dataset (Chinese_Rumor_Dataset)
+│   ├── CED_Preproocessed/  # Preprocessed data artifacts
 │   ├── CED_Processed/      # Processed data artifacts
 │   └── models/             # Saved models and pre-trained weights (e.g., bert-base-chinese)
+├── report/                 # Project report
 ├── docs/                   # Documentation
 ├── results/                # Experiment results and outputs
 ├── src/                    # Source code
 │   ├── data/               # Data loading, processing and dataset definitions
 │   │   ├── bert_dataset.py     # Dataset wrapper for BERT
+│   │   ├── BertManager.py      # Local manager for Bert model
 │   │   ├── data_loader.py      # Base raw data loading
 │   │   ├── feature_engineer.py # Feature extraction for ML models
 │   │   ├── gcn_dataset.py      # Graph construction for GNNs
@@ -26,6 +29,7 @@ root/
 │   │   └── llm_classifier.py
 │   ├── prompts/            # System prompts for LLM tasks
 │   ├── trainers/           # Training scripts and entry points
+│   │   ├── analyze_feature_importance.py   # Analyze feature importance in ML models
 │   │   ├── train_bert_baseline.py
 │   │   ├── train_gcn.py
 │   │   ├── train_llm_gemini.py
@@ -40,7 +44,9 @@ root/
     ├── visual_daily_distribution.py
     ├── visual_interval.py
     ├── visual_propagation.py
-    └── visual_timeline.py
+    ├── visual_root_hour.py
+    ├── visual_timeline.py
+    └── visual_wordcloud.py
 ```
 
 ## Dataset
